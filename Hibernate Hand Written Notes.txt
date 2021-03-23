@@ -1,0 +1,360 @@
+**********Hibernate**********
+
+We can create link with database with 3 types :
+	1. XML Config.
+	2. Properties
+	3. Java Config.
+	
+------------------------------------------------
+ex. with java config.
+	
+	Configuration config = new Configuration();
+	config.addAnnotatedClass(Entity.class);
+	config.setProperties(new Properties(){
+		put("hibernate.connection.username","root")
+		put("hibernate.connection.password","root")
+		put("hibernate.connection.dirver_class","com.mysql.jdbc.Driver")
+		put("hibernate.connection.url","jdfb:mysql://localhost:8080/db")
+	});
+	
+	
+	//Building SessionFactory 
+	
+	SessionFactory sf = config.buildSessionFactory(new StandardServiceRegistryBuilder().applySettings(config.getProperties()).build());
+	
+	//Obtain Session and call persist methods
+	
+	Session session = sf.openSession();
+	session.beginTransaction();
+	
+	session.save(entityObj);
+	session.getTransaction().commit();
+	session.close();
+	
+------------------------------------------------
+
+Log4j Properties
+
+log4j.appender.stdout=org.apache.log4j.ConsoleAppender
+log4j.appender.stdout.Target=System.out
+log4j.appender.stdout.layout=org.apache.log4j.SimpleLayout
+log4j.rootLogger=debug, stdout
+
+------------------------------------------------
+@Entity
+@Table
+@Id
+@GeneratedValue(Strategy = GenerationType.Indentity, Auto, Sequence, Table)
+@column
+
+@Transient
+@Temporal (For date competable with java.util object and persist sql date in database)
+@Formula("lower(datediff(currdate(), birth_date)/365)")
+.....
+@Embeddable
+@Embedded
+.....
+@AttributeOverrides({
+	@AttributeOverride(name = "addressLine1", column = @Column(name = "User_address_line_1")),
+	@AttributeOverride(name = "addressLine2", column = @Column(name = "User_address_line_2")),
+	@AttributeOverride(name = "city", column = @Column(name = "user_city")),
+	@AttributeOverride(name = "state", column = @Column(name = "User_state")),
+	@AttributeOverride(name = "zipcode", column = @Column(name = "zip_code"))
+	})
+....
+
+
+------------------------------------------------
+Basic Value types
+	Hibernate Types
+		1. Entity Types - Have a database identity - corresponds with a database row
+		
+		2. Value Types	- No database identity
+			2.1 Basic
+			2.2 Composite Types
+			2.3 Collection
+			
+	ex. of types : 
+		String firstname	-> basic value type
+		Long Id	-> basic value type
+		User refuser	-> Entity type
+		List<String> alias	->	Collection value type
+		Address address	-> Composite value type	-> (the Address class is not an entity mapping and user entity is holds the address class)
+		
+		
+Value types: 
+	1.	No Db Identity(Dosn't contain @Id)
+	2.	Embedded within an entity
+	3.	do not define their own life cycle
+	
+		
+------------------------------------------------
+Mappings(Unidirectional and BiDirectional)
+	1.	OneToOne	
+	2.	OneToMany
+	3.	ManyToOne
+	4.	ManyToMany
+
+Note : Need to understand the owingEntity Concept............** 
+
+@OneToOne(Unidirectional) -> (user and Credential Entity)
+	ex. ->  In Credential Entity
+			@OneToOne(Cascade = CascadeType.ALL)
+			@JoinColumn(name="user_id")
+			private User user;
+		
+@OneToOne(BiDirectional) -> 
+	ex.	-> In Credential Entity
+			@OneToOne(Cascade = CascadeType.ALL)
+			@JoinColumn(name="user_id")
+			private User user;
+		
+		->	In User Entity
+			@OneToOne(mappedBy="user")
+			private Credential credential;
+			
+@OneToMany(Unidirectional)	->	(Account and Transaction entity)
+	ex. -> In Account Entity
+			@OneToMany(Cascade = CascadeType.ALL)
+			@JoinColumn(name = "ACCOUNT_ID", nullable = false)
+			List<Transaction> transactions = new ArrayList();
+			
+@OneToMany(BiDirectional)	->	
+	ex. ->	In Account Entity
+			@OneToMany(Cascade = CascadeType.ALL, mappedBy = "account")
+			List<Transaction> transactions = new ArrayList();
+			
+			
+		->	In Transaction Entity
+			@ManyToOne
+			@JoinColumn(name = "ACCOUNT_ID")
+			private Account account;
+			
+@ManyToMany(Unidirectional)	->	(User and Account Entity)
+	ex. ->	In Account Entity
+			@ManyToMany(Cascade=CascadeType.ALL)
+			@JoinTable(name = "USER_ACCOUNTS", joinColumns = @JoinColumn(name = "ACCOUNT_ID"), inverseJoinColumns = @joinColumns(name = "USER_ID"))
+			private Set<Users> users = new HashSet<>();
+
+
+@ManyToMany(BiDirectional)	->
+	ex. ->	In Account Entity
+			@ManyToMany(Cascade=CascadeType.ALL)
+			@JoinTable(name = "USER_ACCOUNTS", joinColumns = @JoinColumn(name = "ACCOUNT_ID"), inverseJoinColumns = @joinColumns(name = "USER_ID"))
+			private Set<Users> users = new HashSet<>();
+
+			In User entity
+			@ManyToMany(Cascade = CascadeType.ALL, mappedBy = "users")
+			private Set<Account> account = new HashSet<>();
+
+
+
+@JoinTable	->  An alternate way of OneTomany mapping(to create a third table using @JoinTable annotation). 
+				Transaction, Budget Entity will create third table called ->  Budget_Transaction
+				
+				In Budget Entity	->	
+					
+					@OneToMany(Cascade=CascadeType.ALL)
+					@JoinTable(name = "Budget_Transaction", joinColumns = @JoinColumn(name = "BUDGET_ID"), inverseJoinColumns = @JoinColumn(name = "TRANSACTION_ID"))
+					private List<transactions> transactions = new ArrayList();
+
+------------------------------------------------
+
+Hibernate Persistance Lifecycle
+
+	1. Transient State
+	2. Persistance & Removed -> persistence Context
+	3. Detached
+				
+	Transient State -> 
+		1. The transient state is the initial state of an object.
+		2. Once we create an instance of POJO class, then the object entered in the transient state.
+		3. Here, an object is not associated with the Session. So, the transient state is not related to any database.
+		4. Hence, modifications in the data don't affect any changes in the database.
+		5. The transient objects exist in the heap memory. They are independent of Hibernate.
+		
+		example -> 
+			Employee e=new Employee(); //Here, object enters in the transient state.  
+			e.setId(101);  
+			e.setFirstName("Gaurav");  
+			e.setLastName("Chawla");  	
+				
+	persistence State -> 
+	
+		1. As soon as the object associated with the Session, it entered in the persistent state.
+		2. Hence, we can say that an object is in the persistence state when we save or persist it.
+		3. Here, each object represents the row of the database table.
+		4. So, modifications in the data make changes in the database.
+		
+		We can use any of the following methods for the persistent state.
+			session.save(e);  
+			session.persist(e);  
+			session.update(e);  
+			session.saveOrUpdate(e);  
+			session.lock(e);  
+			session.merge(e); 				
+				
+	Detached State ->
+		1. Once we either close the session or clear its cache, then the object entered into the detached state.
+		2. As an object is no more associated with the Session, modifications in the data don't affect any changes in the database.
+		3. However, the detached object still has a representation in the database.
+		4. If we want to persist the changes made to a detached object, it is required to reattach the application to a valid Hibernate session.
+		5. To associate the detached object with the new hibernate session, use any of these methods - load(), merge(), refresh(), 
+			update() or save() on a new session with the reference of the detached object.
+				
+		We can use any of the following methods for the detached state.
+			session.close();  
+			session.clear();  
+			session.detach(e);  
+			session.evict(e);
+				
+				
+------------------------------------------------
+
+Difference between load and get method.
+		
+	Load : 
+		basic	:	It  is also used to fetch data from the database for the given identifier 
+		Null Object	:	It will throw object not found exception 
+		Lazy or Eager loading	:	It always returns proxy object so this method is lazy load the object
+		Performance	:	It is slightly faster.
+		Use Case	:	If you are sure that object exist then use load() method 
+				
+	get : 
+		basic	:	It  is used to fetch data from the database for the given identifier  
+		Null Object	:	It object not found for the given identifier then it will return null object 
+		Lazy or Eager loading	:	It returns fully initialized object so this method eager load the object  
+		Performance	:	It is slower than load() because it return fully initialized object which impact the performance of the application 
+		Use Case	:	If you are not sure that object exist then use get() method 
+
+------------------------------------------------
+
+Difference between load and get method.
+	
+	Lazy : 
+		Fetching strategy : In Lazy loading, associated data loads only when we explicitly call getter or size method.
+		Default Strategy in ORM Layers  : ManyToMany and OneToMany associations used lazy loading strategy by default.
+		Loading Configuration : It can be enabled by using the annotation parameter : fetch = FetchType.LAZY
+		Performance :	Initial load time much smaller than Eager loading
+		
+		
+	Eager : 
+		Fetching strategy : In Eager loading, data loading happens at the time of their parent is fetched 
+		Default Strategy in ORM Layers  :	ManyToOne and OneToOne associations used lazy loading strategy by default.
+		Loading Configuration :	It can be enabled by using the annotation parameter : fetch = FetchType.EAGER
+		Performance : Loading too much unnecessary data might impact performance
+				
+------------------------------------------------
+
+Difference between load and get method.
+	
+	Save : 
+		Basic : It stores object in database
+		ReturnType :	It return generated id and return type is serializable 
+		Transaction Boundaries : It can save object within boundaries and outside boundaries 
+		Detached Object : It will create a new row in the table for detached object  
+		Supported by : It is only supported by Hibernate 
+
+	Persist : 
+		Basic : It also stores object in database
+		ReturnType :	It does not return anything. Its void return type. 
+		Transaction Boundaries : It can only save object within the transaction boundaries 
+		Detached Object : it will throw persistence exception for detached object 
+		Supported by : It is also supported by JPA
+	
+------------------------------------------------
+Composite primary Key
+	@IdClass
+
+Compound Join Columns
+
+Enumeration
+	@Enumerated(EnumType.STRING)
+	@column(name = "ACCOUNT_TYPE")
+	private AccountType accountType
+			
+			
+Inheritance -> 
+		1. mapped superclass inheritance
+			@MappedSuperClass
+			public abstract class Investment{}
+	
+		2. Table per class inheritance
+			@Entity
+			@Inheritance(strategy=InheritanceType.TABLE_PER_CLASS)
+			
+			ex. ->
+				public abstract class Investment{
+					@Id
+					@GeneratedValue(strategy=GenerationType.TABLE, generator = "key_generator")
+					@TableGenerator(table = "ifinance_keys", pkColumnName = "pk_name", valueColumnName = "pk_value", name="key_generator")
+					@Column("ID")
+					private Long id;
+				}
+				
+		3. Single Table Inheritance
+			@Entity
+			@Inheritance(strategy=InheritanceType.SINGLE_TABLE)
+			@DiscriminatorColumn(name = "INVESTMENT_TYPE")
+			ex. ->
+				public abstract class Investment{
+					@Id
+					@GeneratedValue(strategy=GenerationType.IDENTITY)
+					@Column("ID")
+					private Long id;
+				}
+				
+				@Entity
+				@DiscriminatorValue("BOND")
+				@table(name = "BOND")
+				public class Bond extends Investment{
+					
+					@Column("BONDNAME")
+					private String bondName;
+				}
+				
+				@Entity
+				@DiscriminatorValue("STOCK")
+				@table(name = "STOCK")
+				public class Stock extends Investment{
+				
+					@Column("stockname")
+					private String stockName;
+				}
+				
+		4. 
+		
+------------------------------------------------
+Schema Generation
+
+	hbm2ddl.auto = update, validate, create, create-drop
+				
+------------------------------------------------
+
+Hibernate Query (HQL) and Java Persistance Query(JPQL) Language
+
+	Notes : 
+		1. TypedQuery in JPQL
+		2. String literals for expression and operators in HQL and JPQL
+		3. Hibernate Official Docs link -> https://docs.jboss.org/hibernate/stable/orm/userguide/html_single/Hibernate_User_Guide.html#hql-literals
+		4. query.setParameter("amount", new Integer(scanner.next())); -> take input from users in query HQL
+		5. In HQL and JPQL placeholder like -> (:anyname, ?, ?1, ?2)
+		
+	=====
+	Named Query
+		In Util class..
+			Query query = session.getNamedQuery("Account.largeDeposit")
+			query.setParameter("amount", 33) //Use only if query contain placeholder
+		
+		In Entity Class..
+			@Table()
+			@NamedQueries({ @NamedQuery(name = "Account.largeDeposit", query = "enter your query here.....") })
+			
+------------------------------------------------
+
+Hibernate and JPA Criteria APIs
+
+------------------------------------------------
+	
+		
+		
